@@ -181,27 +181,30 @@ class ManualReviewTask(PipelineTask):
                     print(">> No URL provided for this item.")
 
                 # Sequential Input Loop
+                bridge = context.get("_input_bridge")
                 for field in fields_to_fix:
-                    print(
-                        f"\n>>> Please enter value for '{field}' (End with Ctrl+D or Ctrl+Z on Windows):"
-                    )
-
-                    user_input_lines = []
-                    try:
-                        while True:
-                            line = input()
-                            user_input_lines.append(line)
-                    except EOFError:
-                        pass  # User signaled end of input
-
-                    value = "\n".join(user_input_lines).strip()
+                    if bridge and hasattr(bridge, "request"):
+                        value = bridge.request(
+                            prompt=f"Enter '{field}' for: {source}",
+                            context=url or "",
+                        )
+                    else:
+                        print(f"\n>>> Please enter value for '{field}' (End with Ctrl+D or Ctrl+Z on Windows):")
+                        user_input_lines = []
+                        try:
+                            while True:
+                                line = input()
+                                user_input_lines.append(line)
+                        except EOFError:
+                            pass
+                        value = "\n".join(user_input_lines).strip()
 
                     if value:
                         item[field] = value
                         updated = True
-                        print(f">> Updated '{field}'.")
+                        logger.info(f"Updated '{field}' for {source}.")
                     else:
-                        print(f">> Skipped '{field}' (empty input).")
+                        logger.info(f"Skipped '{field}' (empty input).")
 
                 # Atomic Save after every item to prevent data loss on crash
                 if updated:
@@ -307,19 +310,20 @@ class SourceGatheringTask(PipelineTask):
                             f"Could not auto-open browser for {source_name}: {e}"
                         )
 
-                with open(link_file, "w", encoding="utf-8") as f:
-                    f.write(
-                        f">>> Input links for source: {source_name} below:\n\n"
-                    )  # UX
-
-                print(f"\nSOURCE [{i+1}/{len(analysis_sources)}]: {source_name}")
-                print(f"Action: Paste links into '{link_file}' and save.")
-                try:
+                bridge = context.get("_input_bridge")
+                if bridge and hasattr(bridge, "request"):
+                    raw = bridge.request(
+                        prompt=f"Paste links for: {source_name}",
+                        context=source_url or "",
+                    )
+                    new_urls = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+                else:
+                    with open(link_file, "w", encoding="utf-8") as f:
+                        f.write(f">>> Input links for source: {source_name} below:\n\n")
+                    print(f"\nSOURCE [{i+1}/{len(analysis_sources)}]: {source_name}")
+                    print(f"Action: Paste links into '{link_file}' and save.")
                     input(">> Press [ENTER] when ready... ")
-                except EOFError:
-                    logger.warning("Non-interactive stdin: auto-proceeding.")
-
-                new_urls = self._read_link_file(link_file)
+                    new_urls = self._read_link_file(link_file)
 
                 if not new_urls:
                     logger.info(f"No links provided for {source_name}.")
