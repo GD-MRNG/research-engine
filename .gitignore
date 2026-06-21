@@ -1,0 +1,41 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# uv
+.python-version
+
+# Runtime outputs
+outputs/
+reports/
+inputs/curated_links.txt
+
+# Checkpoints
+*.json
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# cognitive-assets is a separate repo — clone it, don't commit it
+cognitive-assets/
