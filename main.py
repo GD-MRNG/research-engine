@@ -9,6 +9,8 @@ from src.utils.notifications import DiscordNotifier
 
 load_dotenv()
 
+sys.stdout.reconfigure(encoding="utf-8")
+
 
 def setup_logging(workspace_dir: str, debug: bool = False):
     level = logging.DEBUG if debug else logging.INFO

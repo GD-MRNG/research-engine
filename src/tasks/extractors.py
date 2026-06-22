@@ -314,7 +314,10 @@ class SourceGatheringTask(PipelineTask):
 
                 print(f"\nSOURCE [{i+1}/{len(analysis_sources)}]: {source_name}")
                 print(f"Action: Paste links into '{link_file}' and save.")
-                input(">> Press [ENTER] when ready... ")
+                try:
+                    input(">> Press [ENTER] when ready... ")
+                except EOFError:
+                    logger.warning("Non-interactive stdin: auto-proceeding.")
 
                 new_urls = self._read_link_file(link_file)
 

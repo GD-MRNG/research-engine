@@ -14,20 +14,19 @@ class AudioExtractor:
     def __init__(self, model_size="base"):
         self.model_size = model_size
         self.model = None
-        self.use_fp16 = False
 
     def _load_model(self):
         """Lazy loads the Whisper model to keep pipeline startup fast."""
         if self.model is None:
-            import whisper
+            from faster_whisper import WhisperModel
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
+            compute_type = "float16" if device == "cuda" else "int8"
             logger.info(
                 f"Loading Whisper model '{self.model_size}' on device: {device.upper()}"
             )
             try:
-                self.model = whisper.load_model(self.model_size)
-                self.use_fp16 = device == "cuda"
+                self.model = WhisperModel(self.model_size, device=device, compute_type=compute_type)
             except Exception as e:
                 logger.error(f"Failed to load Whisper model: {e}")
                 raise
@@ -43,9 +42,8 @@ class AudioExtractor:
 
         logger.info(f"Transcribing audio file: {filepath}")
         try:
-            # Whisper handles the chunking and decoding under the hood
-            result = self.model.transcribe(filepath, fp16=self.use_fp16)
-            text = result["text"].strip()
+            segments, _ = self.model.transcribe(filepath)
+            text = " ".join(segment.text for segment in segments).strip()
 
             if not text:
                 logger.warning(f"Transcription resulted in empty text for {filepath}")
