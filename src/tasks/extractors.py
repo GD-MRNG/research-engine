@@ -17,6 +17,43 @@ from src.utils.document import PDFExtractor, EpubExtractor, TextExtractor
 logger = logging.getLogger(__name__)
 
 
+def _prompt_file_input(filepath: str, header: str) -> str:
+    """
+    Write a template to filepath, wait for the user to fill it and press Enter.
+    Offers one retry if the file comes back empty. Gives up and returns "" on
+    the second empty submit.
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+    for attempt in range(2):
+        current_header = header if attempt == 0 else f">>> RETRY — {header.lstrip('> ').strip()}"
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(f"{current_header}\n\n")
+        print(f"   File: {filepath}")
+        input(">> Paste into the file, save, then press [ENTER]... ")
+
+        content_lines = []
+        if os.path.exists(filepath):
+            with open(filepath, encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip().startswith(">>>"):
+                        content_lines.append(line.rstrip())
+
+        content = "\n".join(content_lines).strip()
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("")
+
+        if content:
+            return content
+
+        print("\n⚠  I didn't get anything from the file.")
+        if attempt == 0:
+            input("   Fill it in and press [ENTER] to retry, or just press [ENTER] to skip: ")
+
+    logger.info("No input provided after retry — skipping.")
+    return ""
+
+
 @register_task("UniversalExtractorTask")
 class UniversalExtractorTask(PipelineTask):
     """
@@ -106,6 +143,7 @@ class ManualReviewTask(PipelineTask):
         )
         target_types = config.get("target_types", ["analysis"])
         missing_fields = config.get("missing_fields", ["content"])
+        input_file = config.get("input_file", "inputs/hitl_input.txt")
 
         artifact = CheckpointManager.load(checkpoint_file)
         items = artifact.get(target_key, [])
@@ -182,26 +220,18 @@ class ManualReviewTask(PipelineTask):
 
                 # Sequential Input Loop
                 for field in fields_to_fix:
-                    print(
-                        f"\n>>> Please enter value for '{field}' (End with Ctrl+D or Ctrl+Z on Windows):"
+                    print(f"\nFIELD: '{field}'")
+                    value = _prompt_file_input(
+                        input_file,
+                        f">>> Paste value for '{field}' — {source} ({url})",
                     )
-
-                    user_input_lines = []
-                    try:
-                        while True:
-                            line = input()
-                            user_input_lines.append(line)
-                    except EOFError:
-                        pass  # User signaled end of input
-
-                    value = "\n".join(user_input_lines).strip()
 
                     if value:
                         item[field] = value
                         updated = True
-                        print(f">> Updated '{field}'.")
+                        logger.info(f"Updated '{field}' for {source}.")
                     else:
-                        print(f">> Skipped '{field}' (empty input).")
+                        logger.info(f"Skipped '{field}' (empty input).")
 
                 # Atomic Save after every item to prevent data loss on crash
                 if updated:
@@ -307,19 +337,12 @@ class SourceGatheringTask(PipelineTask):
                             f"Could not auto-open browser for {source_name}: {e}"
                         )
 
-                with open(link_file, "w", encoding="utf-8") as f:
-                    f.write(
-                        f">>> Input links for source: {source_name} below:\n\n"
-                    )  # UX
-
                 print(f"\nSOURCE [{i+1}/{len(analysis_sources)}]: {source_name}")
-                print(f"Action: Paste links into '{link_file}' and save.")
-                try:
-                    input(">> Press [ENTER] when ready... ")
-                except EOFError:
-                    logger.warning("Non-interactive stdin: auto-proceeding.")
-
-                new_urls = self._read_link_file(link_file)
+                raw = _prompt_file_input(
+                    link_file,
+                    f">>> Paste links for source: {source_name} (one URL per line)",
+                )
+                new_urls = [ln.strip() for ln in raw.splitlines() if ln.strip()]
 
                 if not new_urls:
                     logger.info(f"No links provided for {source_name}.")
@@ -360,18 +383,6 @@ class SourceGatheringTask(PipelineTask):
                 "tags": source_obj.get("tags", []),
             }
         )
-
-    def _read_link_file(self, filepath: str) -> List[str]:
-        urls = []
-        if os.path.exists(filepath):
-            with open(filepath, encoding="utf-8") as f:
-                for line in f:
-                    cleaned = line.strip()
-                    if cleaned and not cleaned.startswith(">>>"):
-                        urls.append(cleaned)
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write("")
-        return urls
 
 
 @register_task("ContentScrapingTask")

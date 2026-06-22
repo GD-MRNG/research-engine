@@ -58,6 +58,17 @@ uv run python run_weekly_briefings.py
 
 Use `provider: "mock"` in any workflow step config to run without hitting an LLM API.
 
+## HITL input
+
+Two pipeline steps pause for human input:
+
+- **SourceGatheringTask** — pauses per analysis source to collect URLs
+- **ManualReviewTask** — pauses per item to collect missing titles or content (e.g. paywalled articles)
+
+Both use the same flow: the pipeline writes a prompt header to `inputs/input.txt` and waits. Paste your content below the header line in your editor, save, then press Enter in the terminal. The header line is ignored on read.
+
+If the file is empty on Enter, you get one retry (the file refreshes with a `RETRY —` header). A second empty Enter skips the item and moves on.
+
 ## Project structure
 
 ```
