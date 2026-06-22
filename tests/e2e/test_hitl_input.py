@@ -27,18 +27,18 @@ YELLOW = "\033[93m"
 DIM    = "\033[2m"
 
 
-def pause(prompt: str = "Press [ENTER] to continue..."):
+def pause(prompt="Press [ENTER] to continue..."):
     input(f"\n{DIM}{prompt}{RESET}")
 
 
-def section(title: str, n: int, total: int):
+def section(title, n, total):
     print(f"\n{BOLD}{CYAN}{'═' * 60}{RESET}")
     print(f"{BOLD}  Case {n} of {total}: {title}{RESET}")
     print(f"{BOLD}{CYAN}{'═' * 60}{RESET}")
 
 
-def result_line(label: str, passed: bool):
-    icon   = f"{GREEN}✓  PASSED{RESET}" if passed else f"{RED}✗  FAILED{RESET}"
+def result_line(label, passed):
+    icon = f"{GREEN}✓  PASSED{RESET}" if passed else f"{RED}✗  FAILED{RESET}"
     print(f"\n  {BOLD}{label}{RESET} → {icon}")
 
 
@@ -46,10 +46,10 @@ def main():
     total = 3
 
     print(f"\n{BOLD}HITL Input Flow — E2E Test{RESET}")
-    print(f"\nThis test walks you through {total} input scenarios.")
-    print(f"At each step you will be told exactly what to do.")
-    print(f"\nInput file: {BOLD}{ABS_FILE}{RESET}")
-    print(f"\nOpen that file in your editor now and keep it visible alongside this terminal.")
+    print(f"\nKeep this file open in your editor the whole time:")
+    print(f"  {BOLD}{ABS_FILE}{RESET}")
+    print(f"\nThe pipeline writes a header line to that file before each prompt.")
+    print(f"You paste your content below it. The header line is ignored when reading.")
     pause("Ready? Press [ENTER] to start...")
 
     results = []
@@ -58,77 +58,47 @@ def main():
 
     section("Normal input", 1, total)
     print(f"""
-What will happen:
-  The file will be overwritten with a >>> header line.
-  You paste your content, save, then press Enter here.
-
-Your steps:
-  1. Go to {BOLD}{ABS_FILE}{RESET}
-  2. Delete the >>> header line
-  3. Paste any text — a URL or sentence is fine
-  4. Save the file
-  5. Come back here and press [ENTER]
+  The file will refresh with a header line.
+  Paste anything below it, save, then press [ENTER] here.
 """)
-    pause("Ready? Press [ENTER] to begin this case...")
+    pause("Press [ENTER] to begin...")
 
-    r1 = _prompt_file_input(TEST_FILE, ">>> [TEST CASE 1] Normal input — paste any text below:")
+    r1 = _prompt_file_input(TEST_FILE, ">>> [TEST 1] Paste any text below this line:")
     passed1 = bool(r1)
     result_line("Case 1", passed1)
-    if not passed1:
-        print(f"  {RED}Expected some content but got nothing.{RESET}")
     results.append(("Normal input", passed1))
 
     # ── Case 2: Empty → retry → fill in ────────────────────────────────────────
 
     section("Empty file → retry → fill in", 2, total)
     print(f"""
-What will happen:
-  The file will be overwritten with a >>> header line.
-  You press Enter WITHOUT adding anything — triggering the empty warning.
-  You then fill in the file and press Enter again to retry.
-
-Your steps:
-  1. Go to {BOLD}{ABS_FILE}{RESET}
-  2. Do NOT change anything — leave it with just the >>> header
-  3. Come back here and press [ENTER]
-     → You will see: "I didn't get anything from the file."
-     → You will see: "Fill it in and press [ENTER] to retry, or type 'skip'..."
-  4. Go back to the file, delete the >>> header, paste any text, save
-  5. Come back here and press [ENTER]  (do NOT type 'skip')
+  The file will refresh with a header line.
+  This time press [ENTER] here WITHOUT adding anything to the file.
+  You'll get a warning. The file will refresh again — paste something, save,
+  then press [ENTER] here to retry.
 """)
-    pause("Ready? Press [ENTER] to begin this case...")
+    pause("Press [ENTER] to begin...")
 
-    r2 = _prompt_file_input(TEST_FILE, ">>> [TEST CASE 2] Leave this file as-is and press Enter in the terminal:")
+    r2 = _prompt_file_input(TEST_FILE, ">>> [TEST 2] Leave this file empty and press Enter in the terminal:")
     passed2 = bool(r2)
     result_line("Case 2", passed2)
-    if not passed2:
-        print(f"  {RED}Expected content after retry but got nothing.{RESET}")
     results.append(("Empty → retry → fill in", passed2))
 
     # ── Case 3: Empty → skip ────────────────────────────────────────────────────
 
     section("Empty file → skip", 3, total)
     print(f"""
-What will happen:
-  The file will be overwritten with a >>> header line.
-  You press Enter WITHOUT adding anything — triggering the empty warning.
-  You then type 'skip' to continue without providing input.
-
-Your steps:
-  1. Go to {BOLD}{ABS_FILE}{RESET}
-  2. Do NOT change anything — leave it with just the >>> header
-  3. Come back here and press [ENTER]
-     → You will see: "I didn't get anything from the file."
-     → You will see: "Fill it in and press [ENTER] to retry, or type 'skip'..."
-  4. Type  skip  and press [ENTER]
+  The file will refresh with a header line.
+  Press [ENTER] here WITHOUT adding anything to the file.
+  You'll get a warning. At the retry prompt, type  skip  and press [ENTER].
 """)
-    pause("Ready? Press [ENTER] to begin this case...")
+    pause("Press [ENTER] to begin...")
 
-    r3 = _prompt_file_input(TEST_FILE, ">>> [TEST CASE 3] Leave this file as-is and press Enter in the terminal:")
+    r3 = _prompt_file_input(TEST_FILE, ">>> [TEST 3] Leave this file empty and press Enter in the terminal:")
     passed3 = (r3 == "")
     result_line("Case 3", passed3)
     if not passed3:
-        print(f"  {RED}Expected empty result after skip but got: {repr(r3)}{RESET}")
+        print(f"  {RED}Expected empty after skip but got: {repr(r3)}{RESET}")
     results.append(("Empty → skip", passed3))
 
     # ── Summary ─────────────────────────────────────────────────────────────────
