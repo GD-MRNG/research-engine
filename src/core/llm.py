@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any
 
 import openai
-from langchain_community.llms import Ollama
+from langchain_ollama import OllamaLLM
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class ProductionLLMClient(BaseLLMClient):
     def _query_ollama(self, prompt: str, model: str) -> str:
         target_model = model if model != "default" else self.DEFAULT_OLLAMA_MODEL
         logger.info(f"Querying Local Ollama with model: {target_model}")
-        llm = Ollama(model=target_model, temperature=0.0)
+        llm = OllamaLLM(model=target_model, temperature=0.0)
         return self._clean_llm_output(llm.invoke(prompt))
 
     def _clean_llm_output(self, text: str) -> str:
