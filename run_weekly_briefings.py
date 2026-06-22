@@ -2,7 +2,7 @@
 Weekly run script — experimental.
 
 Usage:
-    python run_weekly.py
+    uv run python run_weekly_briefings.py
 """
 
 import subprocess
@@ -15,27 +15,27 @@ from datetime import datetime
 STEPS = [
     {
         "label": "E2E: Title scraper",
-        "cmd": ["python", "tests/e2e/test_title_scraper.py", "--csv", "tests/e2e/inputs/title_urls.csv"],
+        "cmd": [sys.executable, "tests/e2e/test_title_scraper.py", "--csv", "tests/e2e/inputs/title_urls.csv"],
         "group": "tests",
     },
     {
         "label": "E2E: Content scraper",
-        "cmd": ["python", "tests/e2e/test_content_scraper.py", "--csv", "tests/e2e/inputs/content_urls.csv"],
+        "cmd": [sys.executable, "tests/e2e/test_content_scraper.py", "--csv", "tests/e2e/inputs/content_urls.csv"],
         "group": "tests",
     },
     {
         "label": "Pipeline: SG Research",
-        "cmd": ["python", "main.py", "--workflow", "cognitive-assets/workflows/sg_research_pipeline.yaml"],
+        "cmd": [sys.executable, "main.py", "--workflow", "cognitive-assets/workflows/sg_research_pipeline.yaml"],
         "group": "pipelines",
     },
     {
         "label": "Pipeline: Tech Research",
-        "cmd": ["python", "main.py", "--workflow", "cognitive-assets/workflows/tech_research_pipeline.yaml"],
+        "cmd": [sys.executable, "main.py", "--workflow", "cognitive-assets/workflows/tech_research_pipeline.yaml"],
         "group": "pipelines",
     },
     {
         "label": "Pipeline: News Research (Global Briefing — HITL)",
-        "cmd": ["python", "main.py", "--workflow", "cognitive-assets/workflows/news_research_pipeline.yaml"],
+        "cmd": [sys.executable, "main.py", "--workflow", "cognitive-assets/workflows/news_research_pipeline.yaml"],
         "group": "global_briefing",
     },
 ]
