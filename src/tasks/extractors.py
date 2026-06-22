@@ -24,9 +24,10 @@ def _prompt_file_input(filepath: str, header: str) -> str:
     Returns the content (stripped) or "" if the user chooses to skip.
     """
     os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+    current_header = header
     while True:
         with open(filepath, "w", encoding="utf-8") as f:
-            f.write(f"{header}\n\n")
+            f.write(f"{current_header}\n\n")
         print(f"   File: {filepath}")
         input(">> Paste into the file, save, then press [ENTER]... ")
 
@@ -49,6 +50,7 @@ def _prompt_file_input(filepath: str, header: str) -> str:
         ans = input("   Fill it in and press [ENTER] to retry, or type 'skip' + [ENTER] to continue empty: ").strip().lower()
         if ans == "skip":
             return ""
+        current_header = f">>> RETRY — {header.lstrip('> ').strip()}"
 
 
 @register_task("UniversalExtractorTask")

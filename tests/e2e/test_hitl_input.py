@@ -73,9 +73,9 @@ def main():
     section("Empty file → retry → fill in", 2, total)
     print(f"""
   The file will refresh with a header line.
-  This time press [ENTER] here WITHOUT adding anything to the file.
-  You'll get a warning. The file will refresh again — paste something, save,
-  then press [ENTER] here to retry.
+  Press [ENTER] here WITHOUT adding anything to the file.
+  You'll get a warning. The file will refresh with a RETRY header —
+  paste something below it, save, then press [ENTER] here.
 """)
     pause("Press [ENTER] to begin...")
 
