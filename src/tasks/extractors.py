@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 def _prompt_file_input(filepath: str, header: str) -> str:
     """
     Write a template to filepath, wait for the user to fill it and press Enter.
-    If the file comes back empty, warn and let the user retry or skip.
-    Returns the content (stripped) or "" if the user chooses to skip.
+    Offers one retry if the file comes back empty. Gives up and returns "" on
+    the second empty submit.
     """
     os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
-    current_header = header
-    while True:
+    for attempt in range(2):
+        current_header = header if attempt == 0 else f">>> RETRY — {header.lstrip('> ').strip()}"
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(f"{current_header}\n\n")
         print(f"   File: {filepath}")
@@ -47,10 +47,11 @@ def _prompt_file_input(filepath: str, header: str) -> str:
             return content
 
         print("\n⚠  I didn't get anything from the file.")
-        ans = input("   Fill it in and press [ENTER] to retry, or type 'skip' + [ENTER] to continue empty: ").strip().lower()
-        if ans == "skip":
-            return ""
-        current_header = f">>> RETRY — {header.lstrip('> ').strip()}"
+        if attempt == 0:
+            input("   Fill it in and press [ENTER] to retry, or just press [ENTER] to skip: ")
+
+    logger.info("No input provided after retry — skipping.")
+    return ""
 
 
 @register_task("UniversalExtractorTask")
