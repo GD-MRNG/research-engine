@@ -14,6 +14,11 @@ from datetime import datetime
 
 STEPS = [
     {
+        "label": "E2E: HITL input flow",
+        "cmd": [sys.executable, "tests/e2e/test_hitl_input.py"],
+        "group": "tests",
+    },
+    {
         "label": "E2E: Title scraper",
         "cmd": [sys.executable, "tests/e2e/test_title_scraper.py", "--csv", "tests/e2e/inputs/title_urls.csv"],
         "group": "tests",
