@@ -49,6 +49,12 @@ class StrategicSynthesisTask(PipelineTask):
             i for i in items if i.get("type") == "analysis" and i.get("intel_summary")
         ]
 
+        intelligence["Datapoints"] = [
+            i
+            for i in items
+            if i.get("type") == "datapoint" and i.get("trend_summary")
+        ]
+
         grouped_items = {}
         for item in analysis_items:
             k = item.get(group_key, "Uncategorized")
