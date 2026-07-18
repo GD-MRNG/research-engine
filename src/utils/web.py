@@ -11,7 +11,8 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-MIN_CONTENT_CHARS = 2000  # below this threshold, content is likely a bot-challenge or cookie-wall page
+MIN_CONTENT_CHARS = 2000  # below this threshold, content is likely a bot-challenge or cookie-wall page; triggers the Scrapling fallback
+MIN_NEGLIGIBLE_CHARS = 200  # below this, treat as no real content even after fallback (hard block / empty page)
 
 _BOT_CHALLENGE_TITLES = (
     "just a moment",
@@ -171,7 +172,10 @@ class WebPageExtractor:
         """
         Extracts main content text. Tries Selenium first;
         falls back to Scrapling (stealth Playwright) if the result is below MIN_CONTENT_CHARS.
-        Raises RuntimeError if both fetchers fail to return sufficient content.
+        If neither clears the threshold, returns whichever fetcher got more content rather
+        than discarding a legitimately short page. Raises RuntimeError only when the best
+        result is negligible (under MIN_NEGLIGIBLE_CHARS), which indicates a hard block or
+        empty page rather than real content.
         """
         logger.info(f"Starting content extraction for: {url}")
 
@@ -179,26 +183,37 @@ class WebPageExtractor:
         logger.info(f"Selenium primary fetch for content: {url}")
         self._ensure_page_loaded(url)
         driver = self.manager.get_driver()
-        content = _parse_content(driver.page_source)
-        if len(content) >= MIN_CONTENT_CHARS:
-            logger.info(f"Selenium extracted {len(content)} chars from {url}")
-            return content
+        selenium_content = _parse_content(driver.page_source)
+        if len(selenium_content) >= MIN_CONTENT_CHARS:
+            logger.info(f"Selenium extracted {len(selenium_content)} chars from {url}")
+            return selenium_content
         logger.warning(
-            f"Selenium returned only {len(content)} chars for {url} "
+            f"Selenium returned only {len(selenium_content)} chars for {url} "
             f"(threshold: {MIN_CONTENT_CHARS}) — falling back to Scrapling"
         )
 
         # Fallback: Scrapling
         logger.info(f"Scrapling fallback for content: {url}")
         html = _scrapling_fetch_html(url)
-        if html:
-            content = _parse_content(html)
-            if len(content) >= MIN_CONTENT_CHARS:
-                logger.info(f"Scrapling extracted {len(content)} chars from {url}")
-                return content
+        scrapling_content = _parse_content(html) if html else ""
+        if len(scrapling_content) >= MIN_CONTENT_CHARS:
+            logger.info(f"Scrapling extracted {len(scrapling_content)} chars from {url}")
+            return scrapling_content
 
-        logger.error(f"Extraction failed. No content found for {url}")
-        raise RuntimeError(f"Failed to extract meaningful content from {url}")
+        # Neither fetcher cleared the threshold. Return whichever got more content
+        # rather than discarding a real-but-short page; only reject if negligible.
+        best_content = (
+            selenium_content if len(selenium_content) >= len(scrapling_content) else scrapling_content
+        )
+        if len(best_content) < MIN_NEGLIGIBLE_CHARS:
+            logger.error(f"Extraction failed. No content found for {url}")
+            raise RuntimeError(f"Failed to extract meaningful content from {url}")
+
+        logger.warning(
+            f"Neither fetcher reached {MIN_CONTENT_CHARS} chars for {url}; "
+            f"returning best available ({len(best_content)} chars)"
+        )
+        return best_content
 
     def get_webpage_title(self, url: str) -> str:
         """
