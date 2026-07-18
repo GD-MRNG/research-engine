@@ -40,6 +40,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+PREVIEW_CHARS = 600
+
+
+def _make_preview(text: str) -> str:
+    text = text.strip()
+    if len(text) <= PREVIEW_CHARS:
+        return text
+    return text[:PREVIEW_CHARS].rstrip() + "\n… [truncated]"
+
+
 STATUS_ORDER = {
     "ERROR": 0,
     "FAIL": 1,
@@ -84,6 +94,7 @@ def inspect_url(extractor: WebPageExtractor, url: str) -> dict:
         "method": "none",
         "bot_blocked": False,
         "error": "",
+        "preview": "",
     }
     t0 = time.time()
     try:
@@ -104,7 +115,7 @@ def inspect_url(extractor: WebPageExtractor, url: str) -> dict:
     if len(selenium_content) >= MIN_CONTENT_CHARS:
         result["method"] = "selenium"
         result["final_chars"] = len(selenium_content)
-        title_html = selenium_html
+        final_content, title_html = selenium_content, selenium_html
     else:
         scrapling_html = _scrapling_fetch_html(url)
         scrapling_content = _parse_content(scrapling_html) if scrapling_html else ""
@@ -113,7 +124,7 @@ def inspect_url(extractor: WebPageExtractor, url: str) -> dict:
         if len(scrapling_content) >= MIN_CONTENT_CHARS:
             result["method"] = "scrapling"
             result["final_chars"] = len(scrapling_content)
-            title_html = scrapling_html
+            final_content, title_html = scrapling_content, scrapling_html
         else:
             # Neither cleared the threshold - mirror production's "return the
             # best available" behavior instead of discarding real short content.
@@ -123,6 +134,9 @@ def inspect_url(extractor: WebPageExtractor, url: str) -> dict:
                 best_content, title_html, best_method = scrapling_content, scrapling_html, "scrapling_short"
             result["final_chars"] = len(best_content)
             result["method"] = best_method if len(best_content) >= MIN_NEGLIGIBLE_CHARS else "none"
+            final_content = best_content
+
+    result["preview"] = _make_preview(final_content)
 
     title = _parse_title(title_html) if title_html else ""
     result["bot_blocked"] = bool(title) and _is_bot_challenge_title(title)
@@ -241,6 +255,24 @@ def render_report(results: dict, csv_path: str, source_type: str) -> str:
                 f"{r['selenium_chars']} | {r['scrapling_chars']} | {r['final_chars']} | {r['elapsed_seconds']}s |"
             )
     lines.append("")
+
+    lines.append("## Content previews (problem sources)")
+    lines.append("")
+    previewable = [r for r in problems if r.get("preview")]
+    if not previewable:
+        lines.append("No extracted content available to preview for problem sources.")
+        lines.append("")
+    else:
+        for r in previewable:
+            lines.append(f"<details><summary>[{r['id']}] {r['name']} — {r['status']} ({r['final_chars']} chars)</summary>")
+            lines.append("")
+            fence = "````" if "```" in r["preview"] else "```"
+            lines.append(fence)
+            lines.append(r["preview"])
+            lines.append(fence)
+            lines.append("")
+            lines.append("</details>")
+            lines.append("")
 
     lines.append("## Full results")
     lines.append("")
