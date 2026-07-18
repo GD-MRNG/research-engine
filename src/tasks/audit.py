@@ -7,7 +7,6 @@ from typing import Any, Dict
 
 from src.core.context import WorkflowContext
 from src.core.interfaces import PipelineTask
-from src.core.llm import get_llm_client
 from src.core.registry import register_task
 
 logger = logging.getLogger(__name__)
@@ -91,45 +90,6 @@ def _build_section_c(items: list, quality_fields: dict) -> str:
     return "\n".join(lines)
 
 
-def _build_section_d(workspace_dir: str, error_summary_prompt_file: str, config: dict) -> str:
-    log_path = os.path.join(workspace_dir, "errors.log")
-    try:
-        with open(log_path, encoding="utf-8") as f:
-            log_content = f.read().strip()
-    except FileNotFoundError:
-        log_content = ""
-
-    if not log_content:
-        return "### D. Error Summarisation\n\nNo errors or warnings recorded during this run.\n"
-
-    if not os.path.exists(error_summary_prompt_file):
-        raise FileNotFoundError(f"Error summary prompt not found: {error_summary_prompt_file}")
-    with open(error_summary_prompt_file, encoding="utf-8") as f:
-        template = f.read()
-
-    model_name = config.get("model", "default")
-    llm_client = get_llm_client(config)
-    summary = llm_client.query(template.format(content=log_content), model=model_name)
-    return (
-        "### D. Error Summarisation\n\n"
-        "<details>\n<summary>Click to expand error summary</summary>\n\n"
-        f"{summary}\n"
-        "</details>\n"
-    )
-
-
-def _build_section_e(combined_sections: str, audit_report_prompt_file: str, config: dict) -> str:
-    if not os.path.exists(audit_report_prompt_file):
-        raise FileNotFoundError(f"Audit report prompt not found: {audit_report_prompt_file}")
-    with open(audit_report_prompt_file, encoding="utf-8") as f:
-        template = f.read()
-
-    model_name = config.get("model", "default")
-    llm_client = get_llm_client(config)
-    report = llm_client.query(template.format(content=combined_sections), model=model_name)
-    return f"### E. Audit Report\n\n{report}\n"
-
-
 @register_task("PipelineAuditTask")
 class PipelineAuditTask(PipelineTask):
     def execute(self, context: WorkflowContext, config: Dict[str, Any]) -> WorkflowContext:
@@ -138,8 +98,6 @@ class PipelineAuditTask(PipelineTask):
         input_fields = config.get("input_fields", [])
         workload_fields = config.get("workload_fields", [])
         quality_fields = config.get("quality_fields", {})
-        error_summary_prompt_file = config.get("error_summary_prompt_file")
-        audit_report_prompt_file = config.get("audit_report_prompt_file")
         report_suffix = config.get("report_suffix", "Audit-Report")
         output_dir = config.get("output_dir", "reports")
         force_refresh = config.get("force_refresh", False)
@@ -148,7 +106,6 @@ class PipelineAuditTask(PipelineTask):
             raise ValueError("PipelineAuditTask requires 'checkpoint_file' in config.")
 
         checkpoint_path = self.get_workspace_path(context, checkpoint_file)
-        workspace_dir = context.get("_workspace_dir", "outputs")
 
         # Resumability: skip if report already exists
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -180,17 +137,6 @@ class PipelineAuditTask(PipelineTask):
         if quality_fields:
             sections.append(_build_section_c(items, quality_fields))
             logger.info("Section C complete.")
-
-        if error_summary_prompt_file:
-            sections.append(_build_section_d(workspace_dir, error_summary_prompt_file, config))
-            logger.info("Section D complete.")
-
-        combined = "\n\n".join(sections)
-
-        if audit_report_prompt_file:
-            section_e = _build_section_e(combined, audit_report_prompt_file, config)
-            sections.append(section_e)
-            logger.info("Section E complete.")
 
         full_report = "\n\n".join(sections)
 

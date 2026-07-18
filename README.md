@@ -97,7 +97,6 @@ research-engine/
 | `poe` + `gemini-3.5-flash` | Synthesis (large context) |
 | `poe` + `claude-haiku-4.5` | Share summary generation |
 | `ollama` + `qwen2.5:14b` | Region categorisation (local) |
-| `ollama` + `gemma4:latest` | Pipeline audit (local) |
 | `mock` | Local testing without API calls |
 
 ## Checkpoint / resume
