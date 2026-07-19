@@ -2,7 +2,7 @@
 Weekly run script — experimental.
 
 Usage:
-    uv run python run_weekly_briefings.py
+    uv run python scripts/run_weekly_briefings.py
 """
 
 import subprocess
