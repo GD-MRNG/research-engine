@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import datetime
 from typing import Dict, Any
 from jinja2 import Environment, FileSystemLoader
@@ -11,6 +12,8 @@ from src.core.llm import get_llm_client
 from src.utils.io import CheckpointManager
 
 logger = logging.getLogger(__name__)
+
+SIGNAL_LINE_RE = re.compile(r"^\[([A-Za-z0-9\- ]+)\]\s*(.*)$")
 
 
 @register_task("StrategicSynthesisTask")
@@ -149,6 +152,59 @@ class StrategicSynthesisTask(PipelineTask):
         artifact["intelligence"] = intelligence
         CheckpointManager.save(checkpoint_file, artifact)
 
+        return context
+
+
+@register_task("TrendGroupingTask")
+class TrendGroupingTask(PipelineTask):
+    """
+    Splits each datapoint's trend_summary into its individual [CATEGORY] signal
+    lines, then regroups them for presentation: first by the item's tag(s)
+    (falling back to the item's source name if untagged), then by category.
+
+    Writes intelligence["Grouped"] = {tag: {category: [signal, ...]}} to the
+    checkpoint, for templates to render instead of a flat per-item list.
+    """
+
+    def execute(
+        self, context: WorkflowContext, config: Dict[str, Any]
+    ) -> WorkflowContext:
+        checkpoint_file = self.get_workspace_path(
+            context, config.get("checkpoint_file", "research.json")
+        )
+
+        artifact = CheckpointManager.load(checkpoint_file)
+        intelligence = artifact.get("intelligence", {})
+        datapoints = intelligence.get("Datapoints", [])
+
+        grouped: Dict[str, Dict[str, list]] = {}
+
+        for item in datapoints:
+            tags = item.get("tags") or [item.get("source", "Uncategorized")]
+            trend_summary = item.get("trend_summary", "") or ""
+
+            for line in trend_summary.splitlines():
+                match = SIGNAL_LINE_RE.match(line.strip())
+                if not match:
+                    continue
+
+                category = match.group(1).strip()
+                signal_text = match.group(2).strip()
+                if not signal_text:
+                    continue
+
+                for tag in tags:
+                    bucket = grouped.setdefault(tag, {}).setdefault(category, [])
+                    if signal_text not in bucket:
+                        bucket.append(signal_text)
+
+        intelligence["Grouped"] = grouped
+        artifact["intelligence"] = intelligence
+        CheckpointManager.save(checkpoint_file, artifact)
+
+        logger.info(
+            f"TrendGroupingTask: Grouped signals into {len(grouped)} tag group(s)."
+        )
         return context
 
 
