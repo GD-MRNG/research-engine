@@ -274,6 +274,13 @@ class ReportGenerationTask(PipelineTask):
             # Save the exact filepath to context so the Git task knows what to grab
             context.set("generated_report_path", filepath)
 
+            public_url_base = config.get("public_url_base", "").strip().rstrip("/")
+            if public_url_base:
+                url_date = report_date.replace("-", "/")
+                briefing_url = f"{public_url_base}/{url_date}/{report_suffix}.html"
+                context.set("briefing_url", briefing_url)
+                logger.info(f"Public briefing URL: {briefing_url}")
+
         except Exception as e:
             logger.critical(f"Jinja Rendering Failed: {e}")
             raise e

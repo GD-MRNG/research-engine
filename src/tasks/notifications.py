@@ -32,6 +32,7 @@ class NotificationTask(PipelineTask):
     message: static text. Used alone for operator alerts.
     content_path: dotted path into the checkpoint. When set, that value is the
     body. An explicit message is prepended as a label.
+    link_context_key: context key holding a URL appended after the body.
     """
 
     def execute(
@@ -58,6 +59,17 @@ class NotificationTask(PipelineTask):
             message = f"{message}\n\n{content}" if message else content
         elif not message:
             message = "Pipeline step completed."
+
+        link_context_key = config.get("link_context_key")
+        if link_context_key:
+            link = (context.get(link_context_key) or "").strip()
+            if link:
+                message = f"{message}\n\n{link}"
+            else:
+                logger.warning(
+                    "NotificationTask: Context key '%s' is empty. Sending without a link.",
+                    link_context_key,
+                )
 
         notifier = DiscordNotifier(channel=channel)
         sent = notifier.send(message, level=level)
