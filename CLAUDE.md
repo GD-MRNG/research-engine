@@ -23,8 +23,8 @@ uv run python main.py --workflow cognitive-assets/workflows/news_research_pipeli
 # Resume after interruption
 uv run python main.py --workflow cognitive-assets/workflows/news_research_pipeline.yaml --resume outputs/<workspace_dir>
 
-# All pipelines interactively
-uv run python scripts/run_weekly_briefings.py
+# Weekly launcher
+uv run python scripts/launcher.py
 ```
 
 ## Project structure
@@ -33,7 +33,7 @@ uv run python scripts/run_weekly_briefings.py
 src/core/        — workflow engine: WorkflowEngine, WorkflowContext, task registry, LLM client
 src/tasks/       — task implementations registered with @register_task
 src/utils/       — scraping, YouTube, audio, documents, Discord, I/O helpers
-scripts/         — standalone operator scripts (multi-pipeline runner, source quality audit)
+scripts/         — standalone operator scripts (launcher, source quality audit)
 cognitive-assets/ — separate git repo: workflows, prompts, source CSVs, Jinja2 templates
 inputs/          — runtime input files (input.txt for HITL, not committed except as empty seed)
 outputs/         — workspace dirs created per run (gitignored)
@@ -88,4 +88,4 @@ uv run python tests/e2e/test_title_scraper.py --csv tests/e2e/inputs/title_urls.
 uv run python tests/e2e/test_content_scraper.py --csv tests/e2e/inputs/content_urls.csv
 ```
 
-Or run all steps including pipelines interactively via `scripts/run_weekly_briefings.py`.
+Or run the weekly launcher via `scripts/launcher.py`.

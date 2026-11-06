@@ -1,8 +1,9 @@
 """
-Weekly run script — experimental.
+Launcher for the weekly briefing pipelines.
 
-Usage:
-    uv run python scripts/run_weekly_briefings.py
+From the repo root:
+
+    uv run python scripts/launcher.py
 """
 
 import subprocess
@@ -10,9 +11,12 @@ import sys
 import time
 from datetime import datetime
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 # ── Steps ─────────────────────────────────────────────────────────────────────
 
-STEPS = [
+TESTS = [
     {
         "label": "E2E: Title scraper",
         "cmd": [sys.executable, "tests/e2e/test_title_scraper.py", "--csv", "tests/e2e/inputs/title_urls.csv"],
@@ -23,32 +27,35 @@ STEPS = [
         "cmd": [sys.executable, "tests/e2e/test_content_scraper.py", "--csv", "tests/e2e/inputs/content_urls.csv"],
         "group": "tests",
     },
+]
+
+BRIEFINGS = [
     {
-        "label": "Pipeline: SG Research",
+        "label": "Singapore",
         "cmd": [sys.executable, "main.py", "--workflow", "cognitive-assets/workflows/sg_research_pipeline.yaml"],
         "group": "pipelines",
     },
     {
-        "label": "Pipeline: Tech Research",
+        "label": "Technology",
         "cmd": [sys.executable, "main.py", "--workflow", "cognitive-assets/workflows/tech_research_pipeline.yaml"],
         "group": "pipelines",
     },
     {
-        "label": "Pipeline: News Research (Global Briefing — HITL)",
+        "label": "Global news",
         "cmd": [sys.executable, "main.py", "--workflow", "cognitive-assets/workflows/news_research_pipeline.yaml"],
-        "group": "global_briefing",
+        "group": "pipelines",
     },
 ]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-RESET  = "\033[0m"
-BOLD   = "\033[1m"
-CYAN   = "\033[96m"
-GREEN  = "\033[92m"
-RED    = "\033[91m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+CYAN = "\033[96m"
+GREEN = "\033[92m"
+RED = "\033[91m"
 YELLOW = "\033[93m"
-DIM    = "\033[2m"
+DIM = "\033[2m"
 
 
 def header(text: str):
@@ -64,6 +71,39 @@ def ask(prompt: str) -> str:
     except (EOFError, KeyboardInterrupt):
         print()
         sys.exit(0)
+
+
+def parse_choice(answer: str):
+    """
+    Returns the steps to run, None to quit, or False when the answer is not recognised.
+    Enter, a, and all run the three briefings. t runs the scraper checks first.
+    """
+    if answer in ("q", "quit", "exit"):
+        return None
+    if answer in ("", "a", "all"):
+        return list(BRIEFINGS)
+    if answer in ("t", "tests", "test"):
+        return list(TESTS) + list(BRIEFINGS)
+
+    chosen = []
+    for part in answer.replace(",", " ").split():
+        if part not in ("1", "2", "3"):
+            return False
+        step = BRIEFINGS[int(part) - 1]
+        if step not in chosen:
+            chosen.append(step)
+    return chosen
+
+
+def show_menu():
+    print(f"\n{BOLD}Weekly briefings{RESET} — {datetime.now().strftime('%A %d %B %Y')}\n")
+    print(f"  {DIM}[1]{RESET} Singapore")
+    print(f"  {DIM}[2]{RESET} Technology")
+    print(f"  {DIM}[3]{RESET} Global news")
+    print(f"  {DIM}[a]{RESET} All three briefings")
+    print(f"  {DIM}[t]{RESET} Scraper checks, then the briefings")
+    print()
+    print("Enter runs all three. Or type 1,3, a, t, or q.")
 
 
 def run_step(step: dict) -> bool:
@@ -84,37 +124,18 @@ def run_step(step: dict) -> bool:
         return False
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-
 def main():
-    print(f"\n{BOLD}Weekly Run{RESET} — {datetime.now().strftime('%A %d %B %Y, %H:%M')}")
-    print(f"Steps: {len(STEPS)}\n")
-
-    for i, step in enumerate(STEPS, start=1):
-        print(f"  {DIM}[{i}]{RESET} {step['label']}")
-    print()
-
-    ans = ask("Run all steps? [Y/n/select]: ")
-
-    if ans in ("n", "no"):
-        print("Aborted.")
-        return
-
-    # Build list of steps to run
-    if ans in ("s", "select"):
-        chosen = []
-        print()
-        for i, step in enumerate(STEPS, start=1):
-            a = ask(f"  Run [{i}] {step['label']}? [Y/n]: ")
-            if a not in ("n", "no"):
-                chosen.append(step)
-        if not chosen:
-            print("Nothing selected.")
+    show_menu()
+    while True:
+        chosen = parse_choice(ask("\nChoice: "))
+        if chosen is None:
+            print("Aborted.")
             return
-    else:
-        chosen = list(STEPS)
+        if chosen is False:
+            print("Use 1, 2, 3, a, t, or q.")
+            continue
+        break
 
-    # Execute
     results = []
     for i, step in enumerate(chosen, start=1):
         header(f"[{i}/{len(chosen)}] {step['label']}")
@@ -127,14 +148,11 @@ def main():
                 print("Stopped.")
                 break
 
-    # Summary
     header("Summary")
-    all_ok = True
+    all_ok = all(ok for _, ok in results)
     for label, ok in results:
         icon = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
         print(f"  {icon}  {label}")
-        if not ok:
-            all_ok = False
     print()
     if all_ok:
         print(f"{GREEN}{BOLD}All steps passed.{RESET}\n")
